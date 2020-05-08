@@ -33,14 +33,14 @@ if [ ! -d "${CUDA_DIR}/cuda" ]; then
   exit 1
 fi
 
-TF_CFLAGS=( $(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_compile_flags()))') )
-TF_LFLAGS=( $(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_link_flags()))') )
+TF_INC=$(python -c 'import tensorflow as tf; print(tf.sysconfig.get_include())')
+TF_LIB=$(python -c 'import tensorflow as tf; print(tf.sysconfig.get_lib())')
 CUB_DIR=cub
 THRUST_DIR=thrust
 
 # Depending on the versions of your nvcc and gcc, the flag --expt-relaxed-constexpr might be required or should be removed.
 # If nvcc complains about a too new gcc version, you can point it to another gcc
 # version by using something like nvcc -ccbin /path/to/your/gcc6
-nvcc -std=c++11 --expt-relaxed-constexpr -I ./ -I ${CUB_DIR}/../ -I ${THRUST_DIR} -I ${CUDA_DIR}/ -c -o correlation_cost_op_gpu.o kernels/correlation_cost_op_gpu.cu.cc ${TF_CFLAGS[@]} -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+nvcc -std=c++11 --expt-relaxed-constexpr -I ./ -I ${CUB_DIR}/../ -I ${THRUST_DIR} -I ${CUDA_DIR}/ -c -o correlation_cost_op_gpu.o kernels/correlation_cost_op_gpu.cu.cc -I $TF_INC/ -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC -D_GLIBCXX_USE_CXX11_ABI=0
 
-g++ -std=c++11 -I ./ -L ${CUDA_DIR}/cuda/lib64 -shared -o correlation_cost.so ops/correlation_cost_op.cc kernels/correlation_cost_op.cc correlation_cost_op_gpu.o ${TF_CFLAGS[@]} -fPIC -lcudart ${TF_LFLAGS[@]} -D GOOGLE_CUDA=1
+g++ -std=c++11 -I ./ -L ${CUDA_DIR}/cuda/lib64 -shared -o correlation_cost.so ops/correlation_cost_op.cc kernels/correlation_cost_op.cc correlation_cost_op_gpu.o -I $TF_INC/ -fPIC -lcudart -L$TF_LIB -l:libtensorflow_framework.so.2 -D GOOGLE_CUDA=1 -D_GLIBCXX_USE_CXX11_ABI=0
